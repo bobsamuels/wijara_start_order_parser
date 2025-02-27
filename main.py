@@ -14,15 +14,18 @@ def find_racer(line, team):
     return line[3:team_pos-1]
 
 
-def extract_data(line):
+def extract_data(line, full_output):
     number = line[0:3]
     team_name = find_team(line)
     racer_name = find_racer(line, team_name)
-    racer = f"'{number}','{racer_name}','{team_name}'"
+    if full_output:
+        racer = f"{number} {racer_name}|{team_name}"
+    else:
+        racer = f"{number} {racer_name}"
     return racer
 
 
-def parse_pdf(filename) -> dict:
+def parse_pdf(filename, full_csv) -> dict:
     reader = PdfReader(filename)
     age_groups = {}
     racers = []
@@ -32,13 +35,12 @@ def parse_pdf(filename) -> dict:
     for page in reader.pages:
         text = page.extract_text()
         for line in text.split('\n'):
-            if not (line.startswith('Bib') or line.startswith('Final') or line.startswith('Wisconsin')):
+            if not (line.startswith('Bib') or line.startswith('Prelim') or line.startswith('Final') or line.startswith('Wisconsin')):
                 if line.startswith('Girls -') or line.startswith('Boys -'):
                     if current_group != line:
                         age_groups[line] = []
                         current_group = line
                 elif len(line.split('Girls -')) > 1 or len(line.split('Boys -')) > 1:
-
                     if len(line.split('Girls -')) > 1:
                         partial_line = line.partition('Girls -')
                     else:
@@ -49,16 +51,16 @@ def parse_pdf(filename) -> dict:
                     if current_group != header:
                         current_group = header
                         racers = []
-                        racers.append(extract_data(entry))
+                        racers.append(extract_data(entry, full_csv))
                         age_groups[current_group] = racers
 
                     else:
                         racers = age_groups[current_group]
-                        racers.append(extract_data(entry))
+                        racers.append(extract_data(entry, full_csv))
                 else:
                     if not line.startswith('Printed') and not line.startswith('Grand Total'):
                         racers = age_groups[current_group]
-                        racers.append(extract_data(line))
+                        racers.append(extract_data(line, full_csv))
     return age_groups
 
 
@@ -83,13 +85,13 @@ def build_outputs(age_group_recs, output_directory):
                 full_file.write("\n")
 
 
-def run(filename: str):
+def run(filename: str, full_csv: bool):
     filename_without_extension = filename.split('.')[0]
     output_dir = f"output/{filename_without_extension}"
     makedirs(output_dir, exist_ok=True)
-    recs = parse_pdf(filename)
+    recs = parse_pdf(filename, full_csv)
     build_outputs(recs, output_dir)
 
 
 if __name__ == "__main__":
-    run("2024-Devils-Head-Final-Start-Order.pdf")
+    run("CascadePreliminaryStartOrder.pdf", True)
